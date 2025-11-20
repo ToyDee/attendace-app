@@ -25,8 +25,12 @@ export default function Home() {
   const [authLat, setAuthLat] = useState(13.7563);
   const [authLng, setAuthLng] = useState(100.5018);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showFaceVerify, setShowFaceVerify] = useState(false);
 
+  //  NEW — store which action we want to verify for
+  const [faceAction, setFaceAction] = useState<"clock-in" | "clock-out" | null>(
+    null
+  );
+  const [showFaceVerify, setShowFaceVerify] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("attendance_token");
@@ -43,7 +47,7 @@ export default function Home() {
     return () => clearInterval(id);
   }, []);
 
-  // LOAD AUTHORIZED LOCATION FROM BACKEND
+  // LOAD AUTHORIZED LOCATION
   useEffect(() => {
     if (!token) return;
 
@@ -78,6 +82,9 @@ export default function Home() {
     year: "numeric",
   });
 
+  
+  // FINAL Clock-In / Clock-Out function (unchanged)
+  
   const handleClockRequest = async (type: "clock-in" | "clock-out") => {
     if (!session) {
       alert("Please select a session.");
@@ -124,6 +131,33 @@ export default function Home() {
     }
   };
 
+  // WHEN YOU CLICK CLOCK-IN / CLOCK-OUT
+  
+  const requestClock = (type: "clock-in" | "clock-out") => {
+    if (!withinRange) {
+      alert("You are outside the authorized area");
+      return;
+    }
+
+    // store the action
+    setFaceAction(type);
+
+    // open modal
+    setShowFaceVerify(true);
+  };
+
+
+  //  When face verified → actually submit
+
+  const onFaceVerified = () => {
+    setShowFaceVerify(false);
+
+    if (faceAction) {
+      handleClockRequest(faceAction);
+    }
+  };
+
+  // UI BELOW
   if (token === null) {
     return (
       <div className="min-h-screen bg-[#F7F9FC] flex items-center justify-center">
@@ -135,7 +169,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#F7F9FC] flex justify-center">
       <div className="w-full max-w-md px-4 pb-12">
-        
         {/* HEADER */}
         <div className="flex flex-col items-center pt-8">
           <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center shadow mb-4">
@@ -149,23 +182,21 @@ export default function Home() {
 
         {/* LOCATION STATUS */}
         <LocationStatus
-        authorizedLat={authLat}
-        authorizedLng={authLng}
-        setAuthorizedLocation={(lat, lng) => {
-          console.log("Updated authorized location:", lat, lng);
-          setAuthLat(lat);
-          setAuthLng(lng);
-        }}
-        onStatusChange={(payload) => {
-          setWithinRange(payload.withinRange);
-          setUserLocation({
-            lat: payload.latitude,
-            lng: payload.longitude,
-          });
-        }}
-          />
-
-
+          authorizedLat={authLat}
+          authorizedLng={authLng}
+          setAuthorizedLocation={(lat, lng) => {
+            console.log("Updated authorized location:", lat, lng);
+            setAuthLat(lat);
+            setAuthLng(lng);
+          }}
+          onStatusChange={(payload) => {
+            setWithinRange(payload.withinRange);
+            setUserLocation({
+              lat: payload.latitude,
+              lng: payload.longitude,
+            });
+          }}
+        />
 
         {/* SESSION BUTTONS */}
         <div className="mt-6 grid grid-cols-2 gap-4">
@@ -193,7 +224,7 @@ export default function Home() {
         {/* CLOCK IN / OUT */}
         <div className="mt-8 flex gap-4">
           <button
-            onClick={() => setShowFaceVerify(true)}
+            onClick={() => requestClock("clock-in")}
             disabled={!withinRange || isSubmitting}
             className={`flex-1 h-20 rounded-[26px] flex items-center justify-center gap-3 text-xl font-semibold ${
               !withinRange || isSubmitting
@@ -205,7 +236,7 @@ export default function Home() {
           </button>
 
           <button
-            onClick={() => handleClockRequest("clock-out")}
+            onClick={() => requestClock("clock-out")}
             disabled={!withinRange || isSubmitting}
             className={`flex-1 h-20 rounded-[26px] flex items-center justify-center gap-3 text-xl font-semibold ${
               !withinRange || isSubmitting
@@ -233,25 +264,20 @@ export default function Home() {
           Logout
         </button>
 
+        {/* FACE VERIFY MODAL */}
         {showFaceVerify && (
-        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl">
-            <FaceVerify
-              onVerified={() => {
-                setShowFaceVerify(false);
-                handleClockRequest("clock-in"); // ⬅ your existing function
-              }}
-            />
-            <button
-              onClick={() => setShowFaceVerify(false)}
-              className="mt-4 text-sm text-red-600 underline"
-            >
-              Cancel
-            </button>
+          <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-2xl shadow-xl">
+              <FaceVerify onVerified={onFaceVerified} />
+              <button
+                onClick={() => setShowFaceVerify(false)}
+                className="mt-4 text-sm text-red-600 underline"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-
+        )}
       </div>
     </div>
   );
